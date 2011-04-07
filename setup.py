@@ -2,7 +2,7 @@ import commands
 from distutils.core import setup
 
 setup(
-    name='vcprompt',
+    name='doc.py',
     version='1.0',
     author='Eric Holscher',
     author_email='eric@ericholscher.com',
