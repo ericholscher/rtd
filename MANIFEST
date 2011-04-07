@@ -1,2 +1,5 @@
+LICENSE.bsd
+MANIFEST.in
+README.rst
 setup.py
-bin/docs.py
+bin/rtd

@@ -6,5 +6,6 @@ Usage
 
 It's pretty simple currently::
 
-    pip install docs.py
-    docs.py pip
+    pip install rtd
+    rtd pip
+    rtd pip git #Term is human-edited on rtfd.org.
