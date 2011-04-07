@@ -6,5 +6,5 @@ Usage
 
 It's pretty simple currently::
 
-    pip install doc.py
-    doc.py pip
+    pip install docs.py
+    docs.py pip
