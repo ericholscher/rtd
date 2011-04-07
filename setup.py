@@ -3,7 +3,7 @@ import codecs
 
 setup(
     name='rtd',
-    version='1.0.1',
+    version='1.0.2',
     author='Eric Holscher',
     author_email='eric@ericholscher.com',
     url='http://github.com/ericholscher/rtd',
