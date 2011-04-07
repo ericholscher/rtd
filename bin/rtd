@@ -26,6 +26,8 @@ def import_project(slug, extra):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        webbrowser.open("http://readthedocs.org")
     project = sys.argv[1]
     extra = ""
     if len(sys.argv) == 3:

@@ -3,3 +3,4 @@ MANIFEST.in
 README.rst
 setup.py
 bin/rtd
+bin/rtfd
