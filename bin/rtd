@@ -70,6 +70,7 @@ def create_project(vcs, name, repo=None):
     post_data = json.dumps({
         "name": name,
         "repo": repo,
+        "repo_type": vcs,
     })
     h = httplib2.Http(timeout=5)
     resp, content = h.request(post_url, "POST", body=post_data,
