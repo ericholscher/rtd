@@ -1,7 +1,7 @@
 Welcome to rtd's documentation!
 ===============================
 
-This is a command line tool that helps you interface with ``Read the Docs <http://readthedocs.org>``_. It will hopefully expose useful features of the site, it's API, and other intersting tidbits around the site.
+This is a command line tool that helps you interface with `Read the Docs <http://readthedocs.org>`_. It will hopefully expose useful features of the site, it's API, and other intersting tidbits around the site.
 
 
 Basic Commands
