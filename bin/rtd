@@ -1,15 +1,97 @@
 #!/usr/bin/env python
+import commands
 import webbrowser
 import httplib2
 import sys
-
 import json
+import re
+import os
+
+#I recommend reading this file from the bottom up.
 
 BASE_SERVER = 'http://readthedocs.org'
-API_SERVER = '%s/api/v1/' % BASE_SERVER
+API_SERVER = '%s/api/v1' % BASE_SERVER
 
-def import_project(slug, extra):
-    URL = API_SERVER + "project/%s/" % slug
+##################
+# Helper Functions
+##################
+
+class NoRoutes(Exception):
+    pass
+
+def _guess_repo(vcs):
+    if vcs == "git":
+        #This is mainly to handle writable github repos.
+        repo = commands.getoutput('git remote -v |grep origin |grep fetch | cut -f2')
+        repo = repo.split(' ')[0].replace('git@', '').replace(':', '/')
+        if not "://" in repo:
+            repo = "git://%s" % repo
+        print repo
+        return repo
+    else:
+        return None
+
+def _get_auth_string(user, password):
+    return "Basic %s" % ("%s:%s" % (user, password)).encode("base64").strip()
+
+def _read_creds(filename):
+    try:
+        line = open(filename).readline()
+    except IOError:
+        return (None, None)
+    un, pw = line.split(":")
+    return (un.strip(), pw.strip())
+
+def _get_project_data(slug):
+    GET_URL = "%s/project/%s" % (API_SERVER, slug)
+    h = httplib2.Http(timeout=5)
+    resp, proj_info = h.request(GET_URL, "GET")
+    return json.loads(proj_info)
+
+def _dump_results(resp, content):
+    print "Status: %s" % resp.status
+
+########
+# Routes
+########
+
+def create_project(vcs, name, repo=None):
+    user, password = _read_creds(os.path.expanduser("~/.rtdrc"))
+    if not user:
+        user = raw_input("Username: ")
+        password = raw_input("Password: ")
+    if not repo:
+        repo = _guess_repo(vcs)
+        if not repo:
+            print "Couldn't guess repo, please input it."
+            repo = raw_input("Repository: ")
+    auth = _get_auth_string(user=user, password=password)
+    post_url = "%s/project/" % API_SERVER
+    post_data = json.dumps({
+        "name": name,
+        "repo": repo,
+    })
+    h = httplib2.Http(timeout=5)
+    resp, content = h.request(post_url, "POST", body=post_data,
+        headers={'content-type':'application/json',
+                 'AUTHORIZATION': auth}
+            )
+    _dump_results(resp, content)
+    resp, proj_info = h.request(resp['location'], "GET")
+    proj_obj = json.loads(proj_info)
+    proj_url = "http://readthedocs.org%s" % proj_obj['absolute_url']
+    print "URL for your project: %s"
+    webbrowser.open(proj_url)
+
+def build_project(slug):
+    proj_obj = _get_project_data(slug)
+    post_url = "http://readthedocs.org/build/%s" % proj_obj['id']
+    h = httplib2.Http(timeout=5)
+    resp, content = h.request(post_url, "POST")
+    _dump_results(resp, content)
+
+def get_docs(slug, extra=''):
+    URL = "%s/project/%s/" % (API_SERVER, slug)
     h = httplib2.Http(timeout=5)
     try:
         resp, content = h.request(URL, "GET")
@@ -22,14 +104,44 @@ def import_project(slug, extra):
         url = 'http://%s.rtfd.org/%s' % (slug, extra)
         print "Opening browser to %s" % url
         webbrowser.open(url)
+    print "Invalid return data"
+    _dump_results(resp, content)
     return False
 
+COMMAND_ROUTES = (
+    ("create (?P<vcs>(git|hg)) (?P<name>[\w-]+) (?P<repo>.*)", create_project),
+    ("create (?P<vcs>(git|hg)) (?P<name>[\w-]+)", create_project),
+    ("build (?P<slug>[\w-]+)", build_project),
+    ("(?P<slug>[\w-]+) (?P<extra>\w+)$", get_docs),
+    ("(?P<slug>[\w-]+)$", get_docs),
+    ("^$", lambda: webbrowser.open("http://readthedocs.org")),
+)
+
+class Dispatcher(object):
+    def __init__(self, routes):
+        self.routes = routes
+    def resolve(self, message):
+        for regex, responder in self.routes:
+            pattern = re.compile(regex, re.IGNORECASE)
+            match = pattern.match(message)
+            if match:
+                if isinstance(responder, Dispatcher):
+                    try:
+                        return responder.resolve(message)
+                    except NoRoutes:
+                        pass
+                else:
+                    return responder, match.groupdict()
+        raise NoRoutes()
+
+def dispatch(input):
+    dispatcher = Dispatcher(COMMAND_ROUTES)
+    try:
+        responder, arguments = dispatcher.resolve(input)
+    except NoRoutes:
+        print 'No route exists for "%s"' % input
+    else:
+        responder(**arguments)
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        webbrowser.open("http://readthedocs.org")
-    project = sys.argv[1]
-    extra = ""
-    if len(sys.argv) == 3:
-        extra = sys.argv[2]
-    import_project(project, extra)
+    dispatch(' '.join(sys.argv[1:]))
