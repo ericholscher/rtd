@@ -11,7 +11,7 @@ except ImportError:
 
 setup(
     name='rtd',
-    version='1.0.3',
+    version='1.1',
     author='Eric Holscher',
     author_email='eric@ericholscher.com',
     url='http://github.com/ericholscher/rtd',
@@ -21,4 +21,3 @@ setup(
     long_description=codecs.open("README.rst", "r", "utf-8").read(),
     **extra_setup
 )
-
