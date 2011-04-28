@@ -109,6 +109,7 @@ def get_docs(slug, extra=''):
     _dump_results(resp, content)
     return False
 
+#This routing idea credited to Cody Soyland on butlertron :)
 COMMAND_ROUTES = (
     ("create (?P<vcs>(git|hg)) (?P<name>[\w-]+) (?P<repo>.*)", create_project),
     ("create (?P<vcs>(git|hg)) (?P<name>[\w-]+)", create_project),
