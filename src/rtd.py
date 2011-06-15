@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from argparse import ArgumentParser
 import commands
 import webbrowser
 import httplib2
@@ -6,18 +6,21 @@ import sys
 import json
 import re
 import os
+import inspect
 
 #I recommend reading this file from the bottom up.
 
 BASE_SERVER = 'http://readthedocs.org'
 API_SERVER = '%s/api/v1' % BASE_SERVER
-
+VERBOSE = False
 ##################
 # Helper Functions
 ##################
 
+
 class NoRoutes(Exception):
     pass
+
 
 def _guess_repo(vcs):
     if vcs == "git":
@@ -31,8 +34,10 @@ def _guess_repo(vcs):
     else:
         return None
 
+
 def _get_auth_string(user, password):
     return "Basic %s" % ("%s:%s" % (user, password)).encode("base64").strip()
+
 
 def _read_creds(filename):
     try:
@@ -42,11 +47,13 @@ def _read_creds(filename):
     un, pw = line.split(":")
     return (un.strip(), pw.strip())
 
+
 def _get_project_data(slug):
     GET_URL = "%s/project/%s" % (API_SERVER, slug)
     h = httplib2.Http(timeout=5)
     resp, proj_info = h.request(GET_URL, "GET")
     return json.loads(proj_info)
+
 
 def _dump_results(resp, content):
     print "Status: %s" % resp.status
@@ -55,12 +62,13 @@ def _dump_results(resp, content):
 # Routes
 ########
 
-def create_project(vcs, name, repo=None):
+
+def create_project(vcs, name, repo=''):
     user, password = _read_creds(os.path.expanduser("~/.rtdrc"))
     if not user:
         user = raw_input("Username: ")
         password = raw_input("Password: ")
-    if not repo:
+    if repo == '':
         repo = _guess_repo(vcs)
         if not repo:
             print "Couldn't guess repo, please input it."
@@ -74,7 +82,7 @@ def create_project(vcs, name, repo=None):
     })
     h = httplib2.Http(timeout=5)
     resp, content = h.request(post_url, "POST", body=post_data,
-        headers={'content-type':'application/json',
+        headers={'content-type': 'application/json',
                  'AUTHORIZATION': auth}
             )
     _dump_results(resp, content)
@@ -84,6 +92,7 @@ def create_project(vcs, name, repo=None):
     print "URL for your project: %s"
     webbrowser.open(proj_url)
 
+
 def build_project(slug):
     proj_obj = _get_project_data(slug)
     post_url = "http://readthedocs.org/build/%s" % proj_obj['id']
@@ -91,59 +100,63 @@ def build_project(slug):
     resp, content = h.request(post_url, "POST")
     _dump_results(resp, content)
 
-def get_docs(slug, extra=''):
-    URL = "%s/project/%s/" % (API_SERVER, slug)
+
+def get_docs(project, extra=''):
+    URL = "%s/project/%s/" % (API_SERVER, project)
     h = httplib2.Http(timeout=5)
     try:
         resp, content = h.request(URL, "GET")
     except AttributeError:
+        #XXX:dc: Is this really what httplib2 raises?
         print "Socket error trying to pull from Read the Docs"
         return False
     if resp['status'] == '200':
         content_dict = json.loads(content)
         print content_dict['description']
-        url = 'http://%s.rtfd.org/%s' % (slug, extra)
-        print "Opening browser to %s" % url
+        if extra:
+            url = 'http://%s.rtfd.org/%s' % (project, extra)
+        else:
+            url = 'http://%s.rtfd.org/' % project
+        if VERBOSE:
+            print "Opening browser to %s" % url
         webbrowser.open(url)
-    print "Invalid return data"
-    _dump_results(resp, content)
-    return False
-
-#This routing idea credited to Cody Soyland on butlertron :)
-COMMAND_ROUTES = (
-    ("create (?P<vcs>(git|hg)) (?P<name>[\w-]+) (?P<repo>.*)", create_project),
-    ("create (?P<vcs>(git|hg)) (?P<name>[\w-]+)", create_project),
-    ("build (?P<slug>[\w-]+)", build_project),
-    ("(?P<slug>[\w-]+) (?P<extra>\w+)$", get_docs),
-    ("(?P<slug>[\w-]+)$", get_docs),
-    ("^$", lambda: webbrowser.open("http://readthedocs.org")),
-)
-
-class Dispatcher(object):
-    def __init__(self, routes):
-        self.routes = routes
-    def resolve(self, message):
-        for regex, responder in self.routes:
-            pattern = re.compile(regex, re.IGNORECASE)
-            match = pattern.match(message)
-            if match:
-                if isinstance(responder, Dispatcher):
-                    try:
-                        return responder.resolve(message)
-                    except NoRoutes:
-                        pass
-                else:
-                    return responder, match.groupdict()
-        raise NoRoutes()
-
-def dispatch(input):
-    dispatcher = Dispatcher(COMMAND_ROUTES)
-    try:
-        responder, arguments = dispatcher.resolve(input)
-    except NoRoutes:
-        print 'No route exists for "%s"' % input
+        return True
     else:
-        responder(**arguments)
+        print "Invalid return data"
+        _dump_results(resp, content)
+        return False
 
-if __name__ == "__main__":
-    dispatch(' '.join(sys.argv[1:]))
+
+def main():
+    parser = ArgumentParser(prog="rtd")
+    parser.add_argument('--verbose', action='store_true')
+    subparsers = parser.add_subparsers()
+
+    get_docs_parser = subparsers.add_parser(
+        "get", help='get to the documentation for a project')
+    get_docs_parser.add_argument('project', metavar="PROJ", nargs='?')
+    get_docs_parser.add_argument('extra', metavar="EXTRA", nargs='?')
+    get_docs_parser.set_defaults(func=get_docs)
+
+    create_proj_parser = subparsers.add_parser(
+        "create", help='create a project')
+    create_proj_parser.add_argument('vcs', metavar="VCS", nargs=1,
+                                    help="hg or git")
+    create_proj_parser.add_argument('name', metavar="NAME", nargs=1)
+    create_proj_parser.add_argument('repo', metavar="REPO", nargs='?')
+    create_proj_parser.set_defaults(func=create_project)
+
+    build_proj_parser = subparsers.add_parser(
+        "build", help='build project docs')
+    build_proj_parser.add_argument('slug', metavar="SLUG", nargs=1,
+                                    help="url slug for the project")
+    build_proj_parser.set_defaults(func=build_project)
+
+    args = parser.parse_args()
+    if args.verbose:
+        global VERBOSE
+        VERBOSE = True
+    arg_dict = {}
+    for arg in inspect.getargspec(args.func).args:
+        arg_dict.update({arg: getattr(args, arg, '')})
+    args.func(**arg_dict)
