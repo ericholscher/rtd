@@ -25,7 +25,7 @@ We have made it easy to get to the documentation for a project from the command 
 
 ``rtd <project>`` - Open http://project.rtfd.org, which will redirect to its latest version.
 
-``rtd <project> <slug>`` - Will open to http://project.rtfd.org/slug, which will kick off a query against RTD's backend store of slug to documentation mapping. If nothing exists for your slug, you will be asked to figure out where it should go for future users.
+``rtd <project> <extra>`` - Will open to http://project.rtfd.org/slug, which will kick off a query against RTD's backend store of slug to documentation mapping. If nothing exists for your slug, you will be asked to figure out where it should go for future users.
 
 Building docs
 -------------
