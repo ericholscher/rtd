@@ -154,6 +154,8 @@ def get_manpage(project, extra=''):
             print err
         else:
             pager(out)
+    else:
+        print "No manpage entry for %s" % project
 
 
 def main():
