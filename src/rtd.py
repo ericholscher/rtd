@@ -133,24 +133,9 @@ def build_project(slug):
 
 
 def get_docs(project, extra=''):
-    URL = "%s/project/%s/" % (API_URL, project)
-    if VERBOSE:
-        print "Getting %s" % URL
-    conn = HTTPConnection(BASE_SERVER)
-    try:
-        conn.request("GET", URL)
-        resp = conn.getresponse()
-        status, content = resp.status, resp.read()
-    except AttributeError:
-        #XXX:dc: Is this really what httplib2 raises?
-        print "Socket error trying to pull from Read the Docs"
-        return False
-    finally:
-        conn.close()
-
-    if status == 200:
-        content_dict = json.loads(content)
-        print content_dict['description']
+    proj = _get_project_data(project)
+    if proj is not None:
+        print proj['description']
         if extra:
             url = 'http://%s.rtfd.org/%s' % (project, extra)
         else:
@@ -160,9 +145,7 @@ def get_docs(project, extra=''):
         webbrowser.open(url)
         return True
     else:
-        print "Invalid return data"
-        _dump_results(status, content)
-        return False
+        print "Project was not found"
 
 
 def get_manpage(project, extra=''):
