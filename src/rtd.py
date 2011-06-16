@@ -51,6 +51,8 @@ def _read_creds(filename):
 
 def _get_project_data(slug):
     GET_URL = "%s/project/%s" % (API_SERVER, slug)
+    if VERBOSE:
+        print "Getting %s" % GET_URL
     h = httplib2.Http(timeout=5)
     resp, proj_info = h.request(GET_URL, "GET")
     return json.loads(proj_info)
@@ -104,6 +106,8 @@ def build_project(slug):
 
 def get_docs(project, extra=''):
     URL = "%s/project/%s/" % (API_SERVER, project)
+    if VERBOSE:
+        print "Getting %s" % URL
     h = httplib2.Http(timeout=5)
     try:
         resp, content = h.request(URL, "GET")
@@ -173,7 +177,7 @@ def main():
 
     build_proj_parser = subparsers.add_parser(
         "build", help='build project docs')
-    build_proj_parser.add_argument('slug', metavar="SLUG", nargs=1,
+    build_proj_parser.add_argument('slug', metavar="SLUG",
                                     help="url slug for the project")
     build_proj_parser.set_defaults(func=build_project)
 
