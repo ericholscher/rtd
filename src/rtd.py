@@ -13,6 +13,7 @@ from subprocess import PIPE, Popen
 
 BASE_SERVER = 'http://readthedocs.org'
 API_SERVER = '%s/api/v1' % BASE_SERVER
+MEDIA_SERVER = 'http://media.readthedocs.org'
 VERBOSE = False
 ##################
 # Helper Functions
@@ -51,6 +52,8 @@ def _read_creds(filename):
 
 def _get_project_data(slug):
     GET_URL = "%s/project/%s" % (API_SERVER, slug)
+    if VERBOSE:
+        print "Getting %s" % GET_URL
     h = httplib2.Http(timeout=5)
     resp, proj_info = h.request(GET_URL, "GET")
     return json.loads(proj_info)
@@ -104,6 +107,8 @@ def build_project(slug):
 
 def get_docs(project, extra=''):
     URL = "%s/project/%s/" % (API_SERVER, project)
+    if VERBOSE:
+        print "Getting %s" % URL
     h = httplib2.Http(timeout=5)
     try:
         resp, content = h.request(URL, "GET")
@@ -130,6 +135,7 @@ def get_docs(project, extra=''):
 
 def get_manpage(project, extra=''):
     URL = "%s/media/man/%s/latest/%s.1" % (BASE_SERVER, project, project)
+    URL = "%s/man/%s/latest/%s.1" % (MEDIA_SERVER, project, project)
     h = httplib2.Http(timeout=5)
     try:
         resp, content = h.request(URL, "GET")
@@ -149,12 +155,13 @@ def get_manpage(project, extra=''):
 
 def main():
     global BASE_SERVER
+    global MEDIA_SERVER
     global API_SERVER
     global VERBOSE
 
     parser = ArgumentParser(prog="rtd")
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--server', default=BASE_SERVER)
+    parser.add_argument('--server', default=MEDIA_SERVER)
     subparsers = parser.add_subparsers()
 
     get_docs_parser = subparsers.add_parser(
@@ -165,15 +172,15 @@ def main():
 
     create_proj_parser = subparsers.add_parser(
         "create", help='create a project')
-    create_proj_parser.add_argument('vcs', metavar="VCS", nargs=1,
+    create_proj_parser.add_argument('vcs', metavar="VCS",
                                     help="hg or git")
-    create_proj_parser.add_argument('name', metavar="NAME", nargs=1)
+    create_proj_parser.add_argument('name', metavar="NAME")
     create_proj_parser.add_argument('repo', metavar="REPO", nargs='?')
     create_proj_parser.set_defaults(func=create_project)
 
     build_proj_parser = subparsers.add_parser(
         "build", help='build project docs')
-    build_proj_parser.add_argument('slug', metavar="SLUG", nargs=1,
+    build_proj_parser.add_argument('slug', metavar="SLUG",
                                     help="url slug for the project")
     build_proj_parser.set_defaults(func=build_project)
 
@@ -188,7 +195,7 @@ def main():
         VERBOSE = True
 
     if args.server:
-        BASE_SERVER = args.server
+        MEDIA_SERVER = args.server
         API_SERVER = '%s/api/v1' % args.server
 
     arg_dict = {}
