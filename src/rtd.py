@@ -7,6 +7,7 @@ import json
 import re
 import os
 import inspect
+from subprocess import PIPE, Popen
 
 #I recommend reading this file from the bottom up.
 
@@ -127,9 +128,33 @@ def get_docs(project, extra=''):
         return False
 
 
+def get_manpage(project, extra=''):
+    URL = "%s/media/man/%s/latest/%s.1" % (BASE_SERVER, project, project)
+    h = httplib2.Http(timeout=5)
+    try:
+        resp, content = h.request(URL, "GET")
+    except AttributeError:
+        #XXX:dc: Is this really what httplib2 raises?
+        print "Socket error trying to pull from Read the Docs"
+        return False
+    if resp['status'] == '200':
+        cmd = Popen(['/usr/bin/env', 'groff', '-man', '-Tascii'],
+                    stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        out, err = cmd.communicate(input=content)
+        if err:
+            print err
+        else:
+            print out
+
+
 def main():
+    global BASE_SERVER
+    global API_SERVER
+    global VERBOSE
+
     parser = ArgumentParser(prog="rtd")
     parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--server', default=BASE_SERVER)
     subparsers = parser.add_subparsers()
 
     get_docs_parser = subparsers.add_parser(
@@ -152,10 +177,20 @@ def main():
                                     help="url slug for the project")
     build_proj_parser.set_defaults(func=build_project)
 
+    manpage_parser = subparsers.add_parser(
+        "man", help='get to the documentation for a project')
+    manpage_parser.add_argument('project', metavar="PROJ", nargs='?')
+    manpage_parser.add_argument('extra', metavar="EXTRA", nargs='?')
+    manpage_parser.set_defaults(func=get_manpage)
+
     args = parser.parse_args()
     if args.verbose:
-        global VERBOSE
         VERBOSE = True
+
+    if args.server:
+        BASE_SERVER = args.server
+        API_SERVER = '%s/api/v1' % args.server
+
     arg_dict = {}
     for arg in inspect.getargspec(args.func).args:
         arg_dict.update({arg: getattr(args, arg, '')})
