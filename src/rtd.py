@@ -146,7 +146,7 @@ def get_manpage(project, extra=''):
         print "Socket error trying to pull from Read the Docs"
         return False
     if resp['status'] == '200':
-        cmd = Popen(['/usr/bin/env', 'groff', '-man', '-Tascii', '-E'],
+        cmd = Popen(['/usr/bin/env', 'groff', '-E', '-man', '-Tascii'],
                     stdin=PIPE, stdout=PIPE, stderr=PIPE)
         out, err = cmd.communicate(input=content)
         if err:
