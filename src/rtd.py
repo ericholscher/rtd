@@ -169,9 +169,9 @@ def main():
 
     create_proj_parser = subparsers.add_parser(
         "create", help='create a project')
-    create_proj_parser.add_argument('vcs', metavar="VCS", nargs=1,
+    create_proj_parser.add_argument('vcs', metavar="VCS", 
                                     help="hg or git")
-    create_proj_parser.add_argument('name', metavar="NAME", nargs=1)
+    create_proj_parser.add_argument('name', metavar="NAME")
     create_proj_parser.add_argument('repo', metavar="REPO", nargs='?')
     create_proj_parser.set_defaults(func=create_project)
 
