@@ -8,6 +8,7 @@ import re
 import os
 import inspect
 from subprocess import PIPE, Popen
+from pydoc import pager
 
 #I recommend reading this file from the bottom up.
 
@@ -152,7 +153,7 @@ def get_manpage(project, extra=''):
         if err:
             print err
         else:
-            print out
+            pager(out)
 
 
 def main():
