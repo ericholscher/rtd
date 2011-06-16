@@ -2,8 +2,8 @@ import codecs
 try:
     from setuptools import setup, find_packages
     extra_setup = dict(
-        zip_safe = True,
-        install_requires = ['httplib2', 'argparse'],
+        zip_safe=True,
+        install_requires = ['argparse'],
         )
 except ImportError:
     from distutils.core import setup

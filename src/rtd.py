@@ -1,20 +1,19 @@
 from argparse import ArgumentParser
 import commands
 import webbrowser
-import httplib2
-import sys
 import json
-import re
 import os
 import inspect
 from subprocess import PIPE, Popen
 from pydoc import pager
+from httplib import HTTPConnection
+from getpass import getpass
 
 #I recommend reading this file from the bottom up.
 
-BASE_SERVER = 'http://readthedocs.org'
-API_SERVER = '%s/api/v1' % BASE_SERVER
-MEDIA_SERVER = 'http://media.readthedocs.org'
+BASE_SERVER = 'readthedocs.org'
+API_URL = '/api/v1'
+MEDIA_SERVER = 'media.readthedocs.org'
 VERBOSE = False
 ##################
 # Helper Functions
@@ -52,12 +51,17 @@ def _read_creds(filename):
 
 
 def _get_project_data(slug):
-    GET_URL = "%s/project/%s" % (API_SERVER, slug)
+    URL = "%s/project/%s/?format=json" % (API_URL, slug)
     if VERBOSE:
-        print "Getting %s" % GET_URL
-    h = httplib2.Http(timeout=5)
-    resp, proj_info = h.request(GET_URL, "GET")
-    return json.loads(proj_info)
+        print "Getting %s" % URL
+    conn = HTTPConnection(BASE_SERVER)
+    try:
+        conn.request("GET", URL)
+        resp = conn.getresponse()
+        if resp.status == 200:
+            return json.loads(resp.read())
+    finally:
+        conn.close()
 
 
 def _dump_results(resp, content):
@@ -72,52 +76,79 @@ def create_project(vcs, name, repo=''):
     user, password = _read_creds(os.path.expanduser("~/.rtdrc"))
     if not user:
         user = raw_input("Username: ")
-        password = raw_input("Password: ")
+        password = getpass("Password: ")
     if repo == '':
         repo = _guess_repo(vcs)
         if not repo:
             print "Couldn't guess repo, please input it."
             repo = raw_input("Repository: ")
     auth = _get_auth_string(user=user, password=password)
-    post_url = "%s/project/" % API_SERVER
+    post_url = "%s/project/" % API_URL
     post_data = json.dumps({
         "name": name,
         "repo": repo,
         "repo_type": vcs,
     })
-    h = httplib2.Http(timeout=5)
-    resp, content = h.request(post_url, "POST", body=post_data,
-        headers={'content-type': 'application/json',
-                 'AUTHORIZATION': auth}
-            )
-    _dump_results(resp, content)
-    resp, proj_info = h.request(resp['location'], "GET")
-    proj_obj = json.loads(proj_info)
-    proj_url = "http://readthedocs.org%s" % proj_obj['absolute_url']
-    print "URL for your project: %s"
+    conn = HTTPConnection(BASE_SERVER)
+    try:
+        conn.request("POST", post_url, body=post_data,
+                 headers={'content-type': 'application/json',
+                          'AUTHORIZATION': auth}
+                 )
+        resp = conn.getresponse()
+        status = resp.status
+        content = resp.read()
+    finally:
+        conn.close()
+    if status != 201:
+        print "There was a problem creating this project"
+        _dump_results(resp, content)
+        return
+
+    proj_obj = _get_project_data(name)
+    proj_url = "http://%s%s" % (BASE_SERVER, proj_obj['absolute_url'])
+    print "URL for your project: %s" % proj_url
     webbrowser.open(proj_url)
 
 
 def build_project(slug):
     proj_obj = _get_project_data(slug)
-    post_url = "http://readthedocs.org/build/%s" % proj_obj['id']
-    h = httplib2.Http(timeout=5)
-    resp, content = h.request(post_url, "POST")
-    _dump_results(resp, content)
+    if proj_obj is None:
+        print "Project could not be built"
+        return
+    post_url = "/build/%s" % proj_obj['id']
+    conn = HTTPConnection(BASE_SERVER)
+    try:
+        conn.request("POST", post_url)
+        resp = conn.getresponse()
+        status, content = resp.status, resp.read()
+    finally:
+        conn.close()
+
+    if status == 200:
+        print "Kicked off build"
+    else:
+        print "Project could not be built"
+        _dump_results(status, content)
 
 
 def get_docs(project, extra=''):
-    URL = "%s/project/%s/" % (API_SERVER, project)
+    URL = "%s/project/%s/" % (API_URL, project)
     if VERBOSE:
         print "Getting %s" % URL
-    h = httplib2.Http(timeout=5)
+    conn = HTTPConnection(BASE_SERVER)
     try:
-        resp, content = h.request(URL, "GET")
+        conn.request("GET", URL)
+        resp = conn.getresponse()
+        status, content = resp.status, resp.read()
     except AttributeError:
         #XXX:dc: Is this really what httplib2 raises?
         print "Socket error trying to pull from Read the Docs"
         return False
-    if resp['status'] == '200':
+    finally:
+        conn.close()
+
+    if status == 200:
         content_dict = json.loads(content)
         print content_dict['description']
         if extra:
@@ -130,23 +161,28 @@ def get_docs(project, extra=''):
         return True
     else:
         print "Invalid return data"
-        _dump_results(resp, content)
+        _dump_results(status, content)
         return False
 
 
 def get_manpage(project, extra=''):
     if 'readthedocs' in BASE_SERVER:
-        URL = "%s/man/%s/latest/%s.1" % (MEDIA_SERVER, project, project)
+        URL = "/man/%s/latest/%s.1" % (project, project)
+        base = MEDIA_SERVER
     else:
-        URL = "%s/media/man/%s/latest/%s.1" % (BASE_SERVER, project, project)
-    h = httplib2.Http(timeout=5)
+        URL = "/media/man/%s/latest/%s.1" % (project, project)
+        base = BASE_SERVER
+    conn = HTTPConnection(base)
     try:
-        resp, content = h.request(URL, "GET")
+        conn.request("GET", URL)
+        resp = conn.getresponse()
+        status, content = resp.status, resp.read()
     except AttributeError:
         #XXX:dc: Is this really what httplib2 raises?
         print "Socket error trying to pull from Read the Docs"
-        return False
-    if resp['status'] == '200':
+    finally:
+        conn.close()
+    if status == 200:
         cmd = Popen(['/usr/bin/env', 'groff', '-E', '-man', '-Tascii'],
                     stdin=PIPE, stdout=PIPE, stderr=PIPE)
         out, err = cmd.communicate(input=content)
@@ -165,7 +201,8 @@ def main():
 
     parser = ArgumentParser(prog="rtd")
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--server', default=BASE_SERVER)
+    parser.add_argument('--server', default=BASE_SERVER,
+                        help="ie: readthedocs.org")
     subparsers = parser.add_subparsers()
 
     get_docs_parser = subparsers.add_parser(
