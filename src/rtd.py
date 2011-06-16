@@ -134,8 +134,10 @@ def get_docs(project, extra=''):
 
 
 def get_manpage(project, extra=''):
-    URL = "%s/media/man/%s/latest/%s.1" % (BASE_SERVER, project, project)
-    URL = "%s/man/%s/latest/%s.1" % (MEDIA_SERVER, project, project)
+    if 'readthedocs' in BASE_SERVER:
+        URL = "%s/man/%s/latest/%s.1" % (MEDIA_SERVER, project, project)
+    else:
+        URL = "%s/media/man/%s/latest/%s.1" % (BASE_SERVER, project, project)
     h = httplib2.Http(timeout=5)
     try:
         resp, content = h.request(URL, "GET")
@@ -144,7 +146,7 @@ def get_manpage(project, extra=''):
         print "Socket error trying to pull from Read the Docs"
         return False
     if resp['status'] == '200':
-        cmd = Popen(['/usr/bin/env', 'groff', '-man', '-Tascii'],
+        cmd = Popen(['/usr/bin/env', 'groff', '-man', '-Tascii', '-E'],
                     stdin=PIPE, stdout=PIPE, stderr=PIPE)
         out, err = cmd.communicate(input=content)
         if err:
@@ -155,13 +157,12 @@ def get_manpage(project, extra=''):
 
 def main():
     global BASE_SERVER
-    global MEDIA_SERVER
     global API_SERVER
     global VERBOSE
 
     parser = ArgumentParser(prog="rtd")
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--server', default=MEDIA_SERVER)
+    parser.add_argument('--server', default=BASE_SERVER)
     subparsers = parser.add_subparsers()
 
     get_docs_parser = subparsers.add_parser(
@@ -195,7 +196,7 @@ def main():
         VERBOSE = True
 
     if args.server:
-        MEDIA_SERVER = args.server
+        BASE_SERVER = args.server
         API_SERVER = '%s/api/v1' % args.server
 
     arg_dict = {}
