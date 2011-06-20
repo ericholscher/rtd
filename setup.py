@@ -11,7 +11,7 @@ except ImportError:
 
 setup(
     name='rtd',
-    version='1.2',
+    version='1.2.1',
     author='Eric Holscher',
     author_email='eric@ericholscher.com',
     url='http://github.com/ericholscher/rtd',
