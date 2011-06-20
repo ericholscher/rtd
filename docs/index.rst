@@ -23,9 +23,18 @@ We have made it easy to get to the documentation for a project from the command 
 
 ``rtd`` - Open http://readthedocs.org in your browser.
 
-``rtd <project>`` - Open http://project.rtfd.org, which will redirect to its latest version.
+``rtd get <project>`` - Open http://project.rtfd.org, which will redirect to its latest version.
 
-``rtd <project> <extra>`` - Will open to http://project.rtfd.org/slug, which will kick off a query against RTD's backend store of slug to documentation mapping. If nothing exists for your slug, you will be asked to figure out where it should go for future users.
+``rtd get <project> <extra>`` - Will open to http://project.rtfd.org/slug, which will kick off a query against RTD's backend store of slug to documentation mapping. If nothing exists for your slug, you will be asked to figure out where it should go for future users.
+
+Man Pages
+~~~~~~~~~
+
+Downloading man pages is also supported. This depends on having ``groff`` on your PATH. It works like you would expect::
+
+    rtd man rtd
+
+Meta.
 
 Building docs
 -------------
